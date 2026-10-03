@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Misi Daya Geseran: Uji & Buktikan!</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary: #10b981;
+      --accent: #f59e0b;
+      --danger: #ef4444;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --border: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 15px; line-height: 1.5; }
+
+    .container { max-width: 900px; margin: 0 auto; background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+    
+    header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px dashed var(--border); }
+    h1 { color: var(--primary); font-size: 1.8rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .badge-bar { display: flex; justify-content: space-between; align-items: center; background: #eff6ff; padding: 10px 15px; border-radius: 10px; margin-top: 10px; }
+    .score-box { font-weight: bold; color: var(--primary-dark); font-size: 1.1rem; }
+
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+    .card-title { font-size: 1.2rem; color: var(--primary-dark); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+    .btn { background: var(--primary); color: white; border: none; padding: 10px 18px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 8px; }
+    .btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-secondary { background: var(--secondary); }
+    .btn-secondary:hover { background: #059669; }
+    .btn-outline { background: transparent; color: var(--text); border: 2px solid var(--border); }
+    .btn-outline:hover { background: #f1f5f9; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .flex-gap { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+
+    /* Lab Canvas & Animation */
+    .lab-stage { background: #f1f5f9; border-radius: 12px; padding: 20px; height: 180px; position: relative; overflow: hidden; margin-bottom: 15px; border: 2px solid #cbd5e1; display: flex; flex-direction: column; justify-content: flex-end; }
+    .surface-line { height: 35px; width: 100%; border-top: 3px solid #64748b; position: relative; transition: background 0.3s; }
+    
+    .surface-jubin { background: repeating-linear-gradient(90deg, #e2e8f0, #e2e8f0 20px, #cbd5e1 21px); }
+    .surface-kayu { background: #d97706; }
+    .surface-kadbod { background: #b45309; }
+    .surface-kain { background: #818cf8; }
+    .surface-kertas-pasir { background: repeating-linear-gradient(45deg, #475569, #475569 5px, #334155 5px, #334155 10px); }
+
+    .experiment-object { position: absolute; bottom: 35px; left: 30px; display: flex; align-items: flex-end; transition: left 1.5s cubic-bezier(0.25, 1, 0.5, 1); }
+    .box-graphic { background: #3b82f6; border: 2px solid #1d4ed8; color: white; font-weight: bold; border-radius: 6px; display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    
+    .spring-balance { width: 120px; height: 16px; background: #e2e8f0; border: 2px solid #64748b; border-radius: 4px; position: relative; display: flex; align-items: center; padding: 2px; }
+    .spring-line { height: 4px; background: #ef4444; width: 30%; transition: width 0.3s; }
+    .scale-text { font-size: 0.75rem; font-weight: bold; color: #1e293b; margin-left: 5px; }
+
+    .force-arrow { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); color: var(--danger); font-weight: bold; font-size: 0.9rem; display: flex; align-items: center; }
+
+    /* Tables & Charts */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: center; }
+    th { background: #f1f5f9; font-weight: 600; }
+
+    .chart-container { display: flex; align-items: flex-end; gap: 15px; height: 150px; padding: 15px 10px 5px 10px; border-left: 2px solid #64748b; border-bottom: 2px solid #64748b; margin-top: 15px; }
+    .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+    .bar { width: 100%; max-width: 45px; background: var(--primary); border-radius: 4px 4px 0 0; transition: height 0.8s ease; display: flex; align-items: flex-start; justify-content: center; color: white; font-size: 0.75rem; font-weight: bold; padding-top: 3px; }
+    .bar-label { font-size: 0.75rem; margin-top: 5px; text-align: center; word-break: break-word; }
+
+    .quiz-option { display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; background: white; cursor: pointer; font-size: 0.95rem; }
+    .quiz-option:hover { background: #f8fafc; border-color: var(--primary); }
+    .quiz-option.correct { background: #d1fae5; border-color: #10b981; font-weight: bold; }
+    .quiz-option.wrong { background: #fee2e2; border-color: #ef4444; }
+
+    .robot-speech { background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px 15px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px; }
+    .robot-icon { font-size: 2rem; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>🔬 Misi Daya Geseran: Uji & Buktikan!</h1>
+    <div class="badge-bar">
+      <span>Watak: <strong>Saintis Muda Robo-G</strong> 🤖</span>
+      <div class="score-box">Mata: <span id="total-score">0</span> XP</div>
+    </div>
+  </header>
+
+  <!-- SKRIN UTAMA / WELCOME -->
+  <div id="screen-welcome" class="card">
+    <div class="robot-speech">
+      <div class="robot-icon">🤖</div>
+      <div>
+        <strong>Salam Saintis Muda!</strong> Saya Robo-G. Saya memerlukan bantuan anda untuk mengkaji daya geseran supaya saya boleh bergerak dengan lancar melalui pelbagai laluan!
+      </div>
+    </div>
+    <h3>📋 Apakah yang akan anda pelajari?</h3>
+    <ul style="margin: 10px 0 20px 25px;">
+      <li>Kesan <strong>jisim objek</strong> terhadap daya geseran.</li>
+      <li>Kesan <strong>jenis permukaan</strong> terhadap daya geseran.</li>
+    </ul>
+    <button class="btn btn-secondary" onclick="startMission(1)">🚀 Mula Misi 1: Kesan Jisim</button>
+  </div>
+
+  <!-- MISI 1: KESAN JISIM -->
+  <div id="screen-misi1" class="card hidden">
+    <div class="card-title">📦 MISI 1: Hubungan Jisim Objek dan Daya Geseran</div>
+    
+    <div class="robot-speech">
+      <div class="robot-icon">🤖</div>
+      <div>
+        <strong>Langkah 1: Ramalan Inkuiri</strong><br>
+        Pada pendapat anda, apabila jisim objek bertambah, apakah yang berlaku kepada daya tarikan yang diperlukan untuk mengatasi daya geseran?
+      </div>
+    </div>
+
+    <div id="m1-prediction-box" class="flex-gap">
+      <button class="btn btn-outline" onclick="makePrediction(1, 'kurang')">Daya semakin berkurang</button>
+      <button class="btn btn-outline" onclick="makePrediction(1, 'sama')">Daya tidak berubah</button>
+      <button class="btn btn-outline" onclick="makePrediction(1, 'bertambah')">Daya semakin bertambah</button>
+    </div>
+
+    <div id="m1-lab" class="hidden">
+      <hr style="margin: 15px 0;">
+      <h4>🧪 Eksperimen Makmal Maya</h4>
+      <p style="font-size:0.9rem; color:#64748b; margin-bottom: 10px;">Pilih jisim kotak, kemudian tekan <strong>Tarik Objek</strong> untuk mengukur daya pada Neraca Musim (N).</p>
+
+      <div class="flex-gap">
+        <label><strong>Pilih Jisim Objek:</strong></label>
+        <button class="btn btn-outline mass-btn" onclick="selectMass(0.5, this)">500 g</button>
+        <button class="btn btn-outline mass-btn" onclick="selectMass(1.0, this)">1.0 kg</button>
+        <button class="btn btn-outline mass-btn" onclick="selectMass(1.5, this)">1.5 kg</button>
+        <button class="btn btn-outline mass-btn" onclick="selectMass(2.0, this)">2.0 kg</button>
+      </div>
+
+      <div class="lab-stage">
+        <div id="m1-object" class="experiment-object">
+          <div id="m1-box" class="box-graphic" style="width: 70px; height: 50px;">500 g</div>
+          <div class="spring-balance">
+            <div id="m1-spring" class="spring-line"></div>
+            <span id="m1-reading" class="scale-text">0.0 N</span>
+          </div>
+        </div>
+        <div class="surface-line surface-kayu"></div>
+      </div>
+
+      <div class="flex-gap">
+        <button id="btn-pull-m1" class="btn" onclick="runExperimentMisi1()" disabled>🧲 Tarik Objek</button>
+      </div>
+
+      <h4>📊 Jadual Keputusan Misi 1</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Jisim Objek (kg)</th>
+            <th>Bacaan Daya Tarikan / Daya Geseran (N)</th>
+          </tr>
+        </thead>
+        <tbody id="m1-table-body">
+          <tr><td colspan="2" style="color:#94a3b8;">Jalankan eksperimen untuk merekod data.</td></tr>
+        </tbody>
+      </table>
+
+      <div id="m1-chart-section" class="hidden">
+        <h4 style="margin-top:20px;">📈 Graf Jisim vs Daya Geseran</h4>
+        <div class="chart-container" id="m1-chart"></div>
+      </div>
+
+      <div id="m1-conclusion-box" class="card hidden" style="margin-top:20px; background:#f0fdf4; border-color:#bbf7d0;">
+        <h4>💡 Kesimpulan Misi 1</h4>
+        <p style="margin: 8px 0;">Lengkapkan ayat di bawah:</p>
+        <p>Semakin <strong>bertambah</strong> jisim objek, semakin <select id="m1-ans" style="padding: 4px; border-radius: 4px;">
+          <option value="">-- pilih --</option>
+          <option value="berkurang">berkurang</option>
+          <option value="bertambah">bertambah</option>
+        </select> daya geseran yang perlu diatasi.</p>
+        <button class="btn btn-secondary" style="margin-top:10px;" onclick="checkConclusionMisi1()">Semak Jawapan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MISI 2: KESAN JENIS PERMUKAAN -->
+  <div id="screen-misi2" class="card hidden">
+    <div class="card-title">🛣️ MISI 2: Hubungan Jenis Permukaan dan Daya Geseran</div>
+
+    <div class="robot-speech">
+      <div class="robot-icon">🤖</div>
+      <div>
+        <strong>Langkah 1: Ramalan Inkuiri</strong><br>
+        Di antara permukaan <strong>Jubin Licin</strong> dan <strong>Kertas Pasir</strong>, permukaan manakah yang akan menghasilkan daya geseran paling besar (memerlukan daya tarikan paling tinggi)?
+      </div>
+    </div>
+
+    <div id="m2-prediction-box" class="flex-gap">
+      <button class="btn btn-outline" onclick="makePrediction(2, 'jubin')">Jubin Licin</button>
+      <button class="btn btn-outline" onclick="makePrediction(2, 'kertas_pasir')">Kertas Pasir</button>
+    </div>
+
+    <div id="m2-lab" class="hidden">
+      <hr style="margin: 15px 0;">
+      <h4>🧪 Eksperimen Makmal Maya (Jisim Tetap = 1.0 kg)</h4>
+      <p style="font-size:0.9rem; color:#64748b; margin-bottom: 10px;">Pilih jenis permukaan, kemudian tekan <strong>Tarik & Uji</strong>.</p>
+
+      <div class="flex-gap">
+        <button class="btn btn-outline surf-btn" onclick="selectSurface('jubin', 'Jubin Licin', 1.5, 'surface-jubin', this)">Jubin Licin</button>
+        <button class="btn btn-outline surf-btn" onclick="selectSurface('kayu', 'Meja Kayu', 3.5, 'surface-kayu', this)">Meja Kayu</button>
+        <button class="btn btn-outline surf-btn" onclick="selectSurface('kadbod', 'Kadbod', 4.5, 'surface-kadbod', this)">Kadbod</button>
+        <button class="btn btn-outline surf-btn" onclick="selectSurface('kain', 'Kain', 6.0, 'surface-kain', this)">Kain</button>
+        <button class="btn btn-outline surf-btn" onclick="selectSurface('kertas-pasir', 'Kertas Pasir', 8.5, 'surface-kertas-pasir', this)">Kertas Pasir</button>
+      </div>
+
+      <div class="lab-stage">
+        <div id="m2-object" class="experiment-object">
+          <div class="box-graphic" style="width: 75px; height: 50px;">1.0 kg</div>
+          <div class="spring-balance">
+            <div id="m2-spring" class="spring-line"></div>
+            <span id="m2-reading" class="scale-text">0.0 N</span>
+          </div>
+        </div>
+        <div id="m2-surface-display" class="surface-line surface-jubin"></div>
+      </div>
+
+      <div class="flex-gap">
+        <button id="btn-pull-m2" class="btn" onclick="runExperimentMisi2()" disabled>🧲 Tarik & Uji</button>
+      </div>
+
+      <h4>📊 Jadual Keputusan Misi 2</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Jenis Permukaan</th>
+            <th>Tekstur Permukaan</th>
+            <th>Daya Geseran (N)</th>
+          </tr>
+        </thead>
+        <tbody id="m2-table-body">
+          <tr><td colspan="3" style="color:#94a3b8;">Jalankan eksperimen untuk merekod data.</td></tr>
+        </tbody>
+      </table>
+
+      <div id="m2-chart-section" class="hidden">
+        <h4 style="margin-top:20px;">📈 Graf Jenis Permukaan vs Daya Geseran</h4>
+        <div class="chart-container" id="m2-chart"></div>
+      </div>
+
+      <div id="m2-conclusion-box" class="card hidden" style="margin-top:20px; background:#f0fdf4; border-color:#bbf7d0;">
+        <h4>💡 Kesimpulan Misi 2</h4>
+        <p style="margin: 8px 0;">Lengkapkan ayat di bawah:</p>
+        <p>Permukaan yang lebih <strong>kasar</strong> menghasilkan daya geseran yang lebih <select id="m2-ans" style="padding: 4px; border-radius: 4px;">
+          <option value="">-- pilih --</option>
+          <option value="kecil">kecil</option>
+          <option value="besar">besar</option>
+        </select> berbanding permukaan yang licin.</p>
+        <button class="btn btn-secondary" style="margin-top:10px;" onclick="checkConclusionMisi2()">Semak Jawapan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CABARAN SAINTIS (QUIZ) -->
+  <div id="screen-quiz" class="card hidden">
+    <div class="card-title">🏆 Cabaran Saintis Muda (Kuiz 5 Soalan)</div>
+    <div id="quiz-container"></div>
+    <button id="btn-submit-quiz" class="btn btn-secondary hidden" onclick="submitQuiz()">Hantar Jawapan Kuiz</button>
+  </div>
+
+  <!-- KEPUTUSAN AKHIR & LENCANA -->
+  <div id="screen-result" class="card hidden" style="text-align: center;">
+    <h2>🎉 TAHNIAH! ANDA TELAH MENYIAPKAN MISI!</h2>
+    <div style="font-size: 5rem; margin: 15px 0;">🏅</div>
+    <h3 style="color: var(--primary-dark);">Lencana "Saintis Muda Daya Geseran" Diperoleh!</h3>
+    
+    <div style="margin: 20px 0; font-size: 1.1rem;">
+      <p>Jumlah Mata (XP): <strong id="res-score" style="color: var(--primary);">0</strong></p>
+      <p>Eksperimen Berjaya: <strong>9 / 9 Sesi</strong></p>
+      <p>Skor Kuiz: <strong id="res-quiz">0 / 5</strong></p>
+    </div>
+
+    <div class="card" style="text-align: left; background: #f8fafc;">
+      <h4>📌 Rumusan Konsep Daya Geseran:</h4>
+      <ol style="margin-left: 20px; margin-top: 8px;">
+        <li><strong>Jisim Objek:</strong> Semakin bertambah jisim objek, semakin besar daya geseran yang perlu diatasi.</li>
+        <li><strong>Jenis Permukaan:</strong> Permukaan kasar menghasilkan daya geseran yang lebih besar berbanding permukaan licin.</li>
+      </ol>
+    </div>
+
+    <div class="flex-gap" style="justify-content: center; margin-top: 20px;">
+      <button class="btn" onclick="resetGame()">🔄 Set Semula Permainan</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Game State
+  let score = 0;
+  let selectedMass = null;
+  let selectedSurface = null;
+
+  let dataMisi1 = {};
+  let dataMisi2 = {};
+
+  const quizQuestions = [
+    {
+      q: "1. Antara permukaan berikut, yang manakah menghasilkan daya geseran paling KECIL?",
+      options: ["Kertas Pasir", "Jubin Licin", "Kadbod", "Kain Felt"],
+      ans: 1
+    },
+    {
+      q: "2. Mengapakah sebuah kotak yang lebih berat memerlukan daya tarikan yang lebih besar untuk digerakkan?",
+      options: [
+        "Kerana kotak berat mempunyai warna gelap.",
+        "Kerana semakin bertambah jisim, semakin besar daya geseran yang terhasil.",
+        "Kerana jisim kotak bertukar menjadi haba.",
+        "Kerana permukaan meja menjadi lebih licin."
+      ],
+      ans: 1
+    },
+    {
+      q: "3. Alat yang manakah digunakan untuk mengukur daya tarikan dalam unit Newton (N)?",
+      options: ["Pembaris", "Termometer", "Neraca Musim (Dynamometer)", "Silinder Penyukat"],
+      ans: 2
+    },
+    {
+      q: "4. Apakah yang berlaku kepada objek yang ditarik di atas permukaan kertas pasir kasar?",
+      options: [
+        "Objek bergerak sangat laju.",
+        "Daya tarikan yang diperlukan lebih besar.",
+        "Daya geseran menjadi sifar.",
+        "Objek menjadi lebih ringan."
+      ],
+      ans: 1
+    },
+    {
+      q: "5. Manakah antara berikut BENAR tentang daya geseran?",
+      options: [
+        "Sentiasa bertindak mengikut arah pergerakan objek.",
+        "Sentiasa bertindak menentang arah pergerakan objek.",
+        "Hanya wujud di ruang udara.",
+        "Tidak dipengaruhi oleh tekstur permukaan."
+      ],
+      ans: 1
+    }
+  ];
+
+  function addScore(pts) {
+    score += pts;
+    document.getElementById('total-score').innerText = score;
+  }
+
+  function startMission(misi) {
+    document.getElementById('screen-welcome').classList.add('hidden');
+    if (misi === 1) {
+      document.getElementById('screen-misi1').classList.remove('hidden');
+    }
+  }
+
+  function makePrediction(misi, choice) {
+    addScore(20);
+    if (misi === 1) {
+      document.getElementById('m1-prediction-box').innerHTML = `<p style="color:var(--secondary); font-weight:bold;">✅ Ramalan direkodkan! Mari uji ramalan anda dalam eksperimen di bawah.</p>`;
+      document.getElementById('m1-lab').classList.remove('hidden');
+    } else if (misi === 2) {
+      document.getElementById('m2-prediction-box').innerHTML = `<p style="color:var(--secondary); font-weight:bold;">✅ Ramalan direkodkan! Mari jalankan ujian eksperimen permukaan.</p>`;
+      document.getElementById('m2-lab').classList.remove('hidden');
+    }
+  }
+
+  // Misi 1 Logic
+  function selectMass(mass, btn) {
+    selectedMass = mass;
+    document.querySelectorAll('.mass-btn').forEach(b => b.classList.remove('btn-secondary'));
+    btn.classList.add('btn-secondary');
+    
+    const box = document.getElementById('m1-box');
+    box.innerText = mass < 1 ? (mass * 1000) + ' g' : mass + ' kg';
+    box.style.width = (60 + mass * 15) + 'px';
+    box.style.height = (40 + mass * 10) + 'px';
+
+    document.getElementById('btn-pull-m1').disabled = false;
+  }
+
+  function runExperimentMisi1() {
+    if (!selectedMass) return;
+
+    const pullBtn = document.getElementById('btn-pull-m1');
+    pullBtn.disabled = true;
+
+    // Calculate Force: 0.5kg -> 2N, 1.0kg -> 4N, 1.5kg -> 6N, 2.0kg -> 8N
+    const force = selectedMass * 4;
+    
+    // Animate
+    const obj = document.getElementById('m1-object');
+    const spring = document.getElementById('m1-spring');
+    const reading = document.getElementById('m1-reading');
+
+    spring.style.width = (force * 10) + '%';
+    reading.innerText = force.toFixed(1) + ' N';
+    obj.style.left = '180px';
+
+    setTimeout(() => {
+      dataMisi1[selectedMass] = force;
+      updateTableMisi1();
+      addScore(15);
+
+      // Reset obj pos
+      setTimeout(() => {
+        obj.style.left = '30px';
+        spring.style.width = '30%';
+        reading.innerText = '0.0 N';
+        pullBtn.disabled = false;
+      }, 800);
+    }, 1000);
+  }
+
+  function updateTableMisi1() {
+    const tbody = document.getElementById('m1-table-body');
+    tbody.innerHTML = '';
+    const keys = Object.keys(dataMisi1).sort();
+
+    keys.forEach(k => {
+      tbody.innerHTML += `<tr><td>${k} kg</td><td><strong>${dataMisi1[k].toFixed(1)} N</strong></td></tr>`;
+    });
+
+    if (keys.length >= 3) {
+      renderChartMisi1();
+      document.getElementById('m1-chart-section').classList.remove('hidden');
+      document.getElementById('m1-conclusion-box').classList.remove('hidden');
+    }
+  }
+
+  function renderChartMisi1() {
+    const chart = document.getElementById('m1-chart');
+    chart.innerHTML = '';
+    Object.keys(dataMisi1).sort().forEach(k => {
+      const val = dataMisi1[k];
+      const height = (val / 10) * 100;
+      chart.innerHTML += `
+        <div class="bar-group">
+          <div class="bar" style="height: ${height}%;">${val}N</div>
+          <div class="bar-label">${k}kg</div>
+        </div>
+      `;
+    });
+  }
+
+  function checkConclusionMisi1() {
+    const ans = document.getElementById('m1-ans').value;
+    if (ans === 'bertambah') {
+      alert('🎉 Tepat sekali! Semakin bertambah jisim, semakin besar daya geseran.');
+      addScore(50);
+      document.getElementById('screen-misi1').classList.add('hidden');
+      document.getElementById('screen-misi2').classList.remove('hidden');
+    } else {
+      alert('❌ Cuba lagi. Perhatikan bacaan daya pada graf apabila jisim bertambah.');
+    }
+  }
+
+  // Misi 2 Logic
+  function selectSurface(id, name, force, cssClass, btn) {
+    selectedSurface = { id, name, force, cssClass };
+    document.querySelectorAll('.surf-btn').forEach(b => b.classList.remove('btn-secondary'));
+    btn.classList.add('btn-secondary');
+
+    const surfDisplay = document.getElementById('m2-surface-display');
+    surfDisplay.className = 'surface-line ' + cssClass;
+
+    document.getElementById('btn-pull-m2').disabled = false;
+  }
+
+  function runExperimentMisi2() {
+    if (!selectedSurface) return;
+
+    const pullBtn = document.getElementById('btn-pull-m2');
+    pullBtn.disabled = true;
+
+    const force = selectedSurface.force;
+    const obj = document.getElementById('m2-object');
+    const spring = document.getElementById('m2-spring');
+    const reading = document.getElementById('m2-reading');
+
+    spring.style.width = (force * 10) + '%';
+    reading.innerText = force.toFixed(1) + ' N';
+    obj.style.left = '180px';
+
+    setTimeout(() => {
+      dataMisi2[selectedSurface.name] = force;
+      updateTableMisi2();
+      addScore(15);
+
+      setTimeout(() => {
+        obj.style.left = '30px';
+        spring.style.width = '30%';
+        reading.innerText = '0.0 N';
+        pullBtn.disabled = false;
+      }, 800);
+    }, 1000);
+  }
+
+  function updateTableMisi2() {
+    const tbody = document.getElementById('m2-table-body');
+    tbody.innerHTML = '';
+    const keys = Object.keys(dataMisi2);
+
+    keys.forEach(k => {
+      let texture = (k === 'Jubin Licin') ? 'Sangat Licin' : (k === 'Kertas Pasir' ? 'Sangat Kasar' : 'Sederhana Kasar');
+      tbody.innerHTML += `<tr><td>${k}</td><td>${texture}</td><td><strong>${dataMisi2[k].toFixed(1)} N</strong></td></tr>`;
+    });
+
+    if (keys.length >= 3) {
+      renderChartMisi2();
+      document.getElementById('m2-chart-section').classList.remove('hidden');
+      document.getElementById('m2-conclusion-box').classList.remove('hidden');
+    }
+  }
+
+  function renderChartMisi2() {
+    const chart = document.getElementById('m2-chart');
+    chart.innerHTML = '';
+    Object.keys(dataMisi2).forEach(k => {
+      const val = dataMisi2[k];
+      const height = (val / 10) * 100;
+      chart.innerHTML += `
+        <div class="bar-group">
+          <div class="bar" style="height: ${height}%; background: var(--accent);">${val}N</div>
+          <div class="bar-label">${k}</div>
+        </div>
+      `;
+    });
+  }
+
+  function checkConclusionMisi2() {
+    const ans = document.getElementById('m2-ans').value;
+    if (ans === 'besar') {
+      alert('🎉 Syabas! Permukaan kasar menghasilkan daya geseran yang lebih besar.');
+      addScore(50);
+      document.getElementById('screen-misi2').classList.add('hidden');
+      loadQuiz();
+    } else {
+      alert('❌ Jawapan kurang tepat. Bandingkan bacaan Jubin Licin vs Kertas Pasir.');
+    }
+  }
+
+  // Quiz Engine
+  function loadQuiz() {
+    const quizScreen = document.getElementById('screen-quiz');
+    quizScreen.classList.remove('hidden');
+    const container = document.getElementById('quiz-container');
+    container.innerHTML = '';
+
+    quizQuestions.forEach((q, qIndex) => {
+      let opts = q.options.map((opt, oIndex) => `
+        <button class="quiz-option q-opt-${qIndex}" onclick="selectQuizOpt(${qIndex}, ${oIndex}, this)">
+          ${opt}
+        </button>
+      `).join('');
+
+      container.innerHTML += `
+        <div style="margin-bottom: 20px;">
+          <p style="font-weight: bold; margin-bottom: 8px;">${q.q}</p>
+          ${opts}
+        </div>
+      `;
+    });
+
+    document.getElementById('btn-submit-quiz').classList.remove('hidden');
+  }
+
+  let userAnswers = {};
+
+  function selectQuizOpt(qIndex, oIndex, btn) {
+    document.querySelectorAll(`.q-opt-${qIndex}`).forEach(b => b.style.borderColor = '#e2e8f0');
+    btn.style.borderColor = '#2563eb';
+    btn.style.background = '#eff6ff';
+    userAnswers[qIndex] = oIndex;
+  }
+
+  function submitQuiz() {
+    if (Object.keys(userAnswers).length < quizQuestions.length) {
+      alert('Sila jawab semua 5 soalan kuiz sebelum menghantar!');
+      return;
+    }
+
+    let correctCount = 0;
+    quizQuestions.forEach((q, idx) => {
+      if (userAnswers[idx] === q.ans) {
+        correctCount++;
+      }
+    });
+
+    const quizScore = correctCount * 20;
+    addScore(quizScore);
+
+    document.getElementById('screen-quiz').classList.add('hidden');
+    document.getElementById('screen-result').classList.remove('hidden');
+
+    document.getElementById('res-score').innerText = score;
+    document.getElementById('res-quiz').innerText = `${correctCount} / 5 (${quizScore} XP)`;
+  }
+
+  function resetGame() {
+    location.reload();
+  }
+</script>
+
+</body>
+</html>
