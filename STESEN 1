@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MicroCraft: Misi Mikroorganisma 3D</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Fredoka', sans-serif;
+            background-color: #0b0f19;
+            color: #ffffff;
+        }
+        .font-pixel {
+            font-family: 'Press Start 2P', monospace;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Custom Scrollbar for Modal */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #10B981;
+            border-radius: 4px;
+        }
+        /* Touch Controls Overlay */
+        .touch-zone {
+            touch-action: none;
+        }
+        /* Pulse Animation for Chest Beacon */
+        @keyframes beacon-pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 0.4; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+        .pulse-effect {
+            animation: beacon-pulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden">
+
+    <!-- Game Render Canvas -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full z-0"></div>
+
+    <!-- Crosshair for Laptop Pointer Lock -->
+    <div id="crosshair" class="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
+        <div class="w-4 h-4 relative">
+            <div class="absolute top-1/2 left-0 right-0 h-0.5 bg-white/80 -translate-y-1/2"></div>
+            <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/80 -translate-x-1/2"></div>
+        </div>
+    </div>
+
+    <!-- HUD Overlay Top Bar -->
+    <div id="hud-top" class="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none z-20 gap-2">
+        <!-- Player Info & Score -->
+        <div class="bg-gray-900/85 border-2 border-emerald-500/80 rounded-2xl p-3 backdrop-blur-md shadow-lg flex items-center gap-4 pointer-events-auto">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-400 text-xl font-bold">
+                <i class="fa-solid fa-cube"></i>
+            </div>
+            <div>
+                <div class="text-xs text-gray-400 uppercase font-pixel tracking-wider">Markah Misi</div>
+                <div class="text-2xl font-black text-emerald-400 flex items-center gap-1">
+                    <span id="score-text">0</span> <span class="text-xs font-normal text-gray-400">/ 500</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quest Progress Tracker -->
+        <div class="bg-gray-900/85 border-2 border-amber-500/80 rounded-2xl p-3 backdrop-blur-md shadow-lg flex items-center gap-3 pointer-events-auto">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-400 text-xl font-bold">
+                <i class="fa-solid fa-box-open"></i>
+            </div>
+            <div>
+                <div class="text-xs text-gray-400 uppercase font-pixel tracking-wider">Peti Terkumpul</div>
+                <div class="text-xl font-bold text-amber-300">
+                    <span id="chests-found-text">0</span> / 5 Peti
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proximity Interaction Hint -->
+    <div id="interact-prompt" class="hidden absolute bottom-24 left-1/2 -translate-x-1/2 bg-amber-500 text-gray-950 font-bold px-6 py-2.5 rounded-full shadow-xl border-2 border-amber-300 flex items-center gap-2 animate-bounce z-20 pointer-events-none text-base md:text-lg">
+        <i class="fa-solid fa-hand-pointer text-xl"></i>
+        <span>Buka Peti Sains (Tekan E / Ketik Skrin)</span>
+    </div>
+
+    <!-- Mobile Virtual Controls -->
+    <div id="mobile-controls" class="block md:hidden absolute inset-0 pointer-events-none z-30">
+        <!-- Virtual Joystick Area (Left Half) -->
+        <div id="joystick-zone" class="absolute bottom-6 left-6 w-32 h-32 rounded-full bg-white/10 border-2 border-white/30 backdrop-blur-sm pointer-events-auto touch-zone flex items-center justify-center">
+            <div id="joystick-knob" class="w-14 h-14 rounded-full bg-emerald-500/80 border-2 border-emerald-300 shadow-md transform transition-transform"></div>
+        </div>
+
+        <!-- Jump & Interact Buttons (Right Side) -->
+        <div class="absolute bottom-6 right-6 flex flex-col gap-3 pointer-events-auto">
+            <button id="btn-mobile-jump" class="w-16 h-16 rounded-2xl bg-amber-500/90 active:bg-amber-600 border-2 border-amber-300 text-gray-950 font-black text-xl flex items-center justify-center shadow-lg active:scale-95 transition-transform touch-zone">
+                <i class="fa-solid fa-arrow-up"></i>
+            </button>
+            <button id="btn-mobile-interact" class="w-16 h-16 rounded-2xl bg-emerald-500/90 active:bg-emerald-600 border-2 border-emerald-300 text-white font-black text-xl flex items-center justify-center shadow-lg active:scale-95 transition-transform touch-zone">
+                <i class="fa-solid fa-key"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Start Game Modal Overlay -->
+    <div id="start-overlay" class="absolute inset-0 bg-gray-950/90 backdrop-blur-lg flex items-center justify-center p-4 z-50">
+        <div class="max-w-xl w-full bg-gray-900 border-4 border-emerald-500 rounded-3xl p-6 md:p-8 text-center shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-36 h-36 bg-emerald-500/20 rounded-full blur-2xl"></div>
+            
+            <div class="inline-block bg-emerald-500/20 text-emerald-400 font-pixel text-xs px-3 py-1 rounded-full border border-emerald-500/40 mb-3">
+                Pertandingan Inovasi Game Sains 3D
+            </div>
+            
+            <h1 class="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300 mb-2 tracking-tight">
+                MicroCraft
+            </h1>
+            <p class="text-emerald-400 font-semibold mb-6 text-sm md:text-base">Misi Mikroorganisma Sains Tahun 6</p>
+
+            <div class="bg-gray-800/80 rounded-2xl p-4 text-left border border-gray-700 text-gray-300 text-xs md:text-sm space-y-2 mb-6">
+                <p class="font-bold text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-bullseye"></i> Objektif Permainan:
+                </p>
+                <p>Terokai dunia 3D blocky, temui 5 buah Peti Ilmu Mikroorganisma, dan jawab soalan Sains Tahun 6 untuk mengumpul markah penuh 500!</p>
+                <hr class="border-gray-700 my-2">
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <span class="font-bold text-emerald-400"><i class="fa-solid fa-laptop"></i> Laptop / PC:</span>
+                        <ul class="list-disc list-inside text-gray-400 mt-1">
+                            <li>WASD : Bergerak</li>
+                            <li>Tetikus : Pusing Pandangan</li>
+                            <li>Spacebar : Lompat</li>
+                            <li>Kekunci E : Buka Peti</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <span class="font-bold text-emerald-400"><i class="fa-solid fa-mobile-screen"></i> Telefon / Tablet:</span>
+                        <ul class="list-disc list-inside text-gray-400 mt-1">
+                            <li>Joystick Kiri : Bergerak</li>
+                            <li>Sentuh Kanan : Kamera</li>
+                            <li>Butang Atas : Lompat</li>
+                            <li>Butang Kunci : Buka Peti</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-start" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-gray-950 font-black text-lg md:text-xl rounded-2xl shadow-xl border-2 border-emerald-300 transform active:scale-95 transition-all flex items-center justify-center gap-3">
+                <i class="fa-solid fa-play text-xl"></i> MULA KEMBARA MIKRO
+            </button>
+        </div>
+    </div>
+
+    <!-- Quiz Modal Window -->
+    <div id="quiz-modal" class="hidden absolute inset-0 bg-gray-950/80 backdrop-blur-md flex items-center justify-center p-4 z-40">
+        <div class="max-w-lg w-full bg-gray-900 border-4 border-amber-500 rounded-3xl p-6 text-white shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-4 border-b border-gray-800 pb-3">
+                <div class="flex items-center gap-2 text-amber-400 font-pixel text-xs">
+                    <i class="fa-solid fa-cube text-lg"></i>
+                    <span id="quiz-title-number">PETI SOALAN #1</span>
+                </div>
+                <div class="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-xs font-bold border border-amber-500/40">
+                    Sains Tahun 6
+                </div>
+            </div>
+
+            <!-- Question Text -->
+            <div id="quiz-question" class="text-base md:text-lg font-bold text-gray-100 mb-5 leading-relaxed">
+                Soalan akan dipaparkan di sini...
+            </div>
+
+            <!-- Options Container -->
+            <div id="quiz-options" class="space-y-3 mb-5">
+                <!-- Options injected via JavaScript -->
+            </div>
+
+            <!-- Feedback Alert Box -->
+            <div id="quiz-feedback" class="hidden p-3.5 rounded-xl text-xs md:text-sm font-semibold mb-4 border text-left"></div>
+
+            <!-- Action Button -->
+            <button id="btn-close-quiz" class="hidden w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold rounded-xl shadow-lg border border-emerald-300 transition-all text-center">
+                Teruskan Kembara <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Victory Screen Modal Overlay -->
+    <div id="victory-modal" class="hidden absolute inset-0 bg-gray-950/90 backdrop-blur-lg flex items-center justify-center p-4 z-50">
+        <div class="max-w-xl w-full bg-gray-900 border-4 border-emerald-400 rounded-3xl p-6 md:p-8 text-center shadow-2xl relative">
+            <div class="w-20 h-20 mx-auto mb-3 bg-amber-500/20 border-2 border-amber-400 rounded-2xl flex items-center justify-center text-amber-400 text-4xl shadow-lg">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+
+            <h2 class="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-emerald-400 to-teal-300 mb-1">
+                MISI SELESAI!
+            </h2>
+            <p class="text-gray-400 text-sm mb-6">Tahniah! Anda telah menguasai Tajuk Mikroorganisma.</p>
+
+            <!-- Final Stats Grid -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-gray-800/80 p-4 rounded-2xl border border-gray-700">
+                    <div class="text-xs text-gray-400 font-pixel mb-1">JUMLAH MARKAH</div>
+                    <div id="final-score" class="text-3xl font-black text-emerald-400">0 / 500</div>
+                </div>
+                <div class="bg-gray-800/80 p-4 rounded-2xl border border-gray-700">
+                    <div class="text-xs text-gray-400 font-pixel mb-1">TAHAP PENGUASAAN</div>
+                    <div id="final-rating" class="text-xl font-black text-amber-300">Cemerlang</div>
+                </div>
+            </div>
+
+            <!-- Notes Summary Button & Restart -->
+            <div class="space-y-3">
+                <button id="btn-restart" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-gray-950 font-black text-lg rounded-2xl shadow-xl border-2 border-emerald-300 transform active:scale-95 transition-all">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> MAIN SEMULA
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* WEB AUDIO API SOUND EFFECTS SYNTHESIZER */
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playJump() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+            playChestOpen() {
+                if (!this.ctx) return;
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, index) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + index * 0.08);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + index * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + index * 0.08 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + index * 0.08);
+                    osc.stop(this.ctx.currentTime + index * 0.08 + 0.2);
+                });
+            }
+            playCorrect() {
+                if (!this.ctx) return;
+                const notes = [523.25, 659.25, 783.99];
+                notes.forEach((freq, index) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + index * 0.1);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + index * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + index * 0.1 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + index * 0.1);
+                    osc.stop(this.ctx.currentTime + index * 0.1 + 0.3);
+                });
+            }
+            playWrong() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(110, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+        }
+        const sfx = new SoundFX();
+
+        /* SCIENCE YEAR 6 QUESTIONS DATABASE */
+        const quizQuestions = [
+            {
+                id: 0,
+                title: "Soalan 1: Pengelasan Mikroorganisma",
+                question: "Antara berikut, mikroorganisma manakah yang tergolong dalam kumpulan KULAT?",
+                options: ["Yis", "Salmonella", "Paramecium", "Virus Influenza"],
+                correct: 0,
+                explanation: "Yis dan Mucor merupakan contoh kulat (fungi). Salmonella ialah bakteria, Paramecium ialah protozoa, dan Influenza ialah virus."
+            },
+            {
+                id: 1,
+                title: "Soalan 2: Proses Hidup Mikroorganisma",
+                question: "Aina mendapati tompok-tompok hitam (Mucor) pada roti bertambah selepas 4 hari. Ini membuktikan mikroorganisma...",
+                options: ["Bernafas", "Bertumbuh", "Bergerak", "Membiak sahaja"],
+                correct: 1,
+                explanation: "Pertambahan saiz dan bilangan tompok Mucor pada permukaan roti menunjukkan mikroorganisma bertumbuh."
+            },
+            {
+                id: 2,
+                title: "Soalan 3: Hasil Pernafasan Yis",
+                question: "Apakah gas yang dibebaskan oleh yis semasa bernafas hingga menyebabkan belon pada mulut botol mengembang?",
+                options: ["Oksigen", "Nitrogen", "Karbon Dioksida", "Hidrogen"],
+                correct: 2,
+                explanation: "Yis bertindak balas dengan gula semasa proses respirasi dan membebaskan gas KARBON DIOKSIDA."
+            },
+            {
+                id: 3,
+                title: "Soalan 4: Faktor Pertumbuhan",
+                question: "Antara keadaan berikut, yang manakah PALING SESUAI untuk pertumbuhan mikroorganisma?",
+                options: [
+                    "Sangat kering dan panas",
+                    "Lembap, hangat, dan berudara",
+                    "Disimpan dalam peti sejuk beku",
+                    "Sangat berasid tanpa nutrisi"
+                ],
+                correct: 1,
+                explanation: "Mikroorganisma memerlukan Air (kelembapan), Udara, Suhu yang sesuai (hangat), Nutrisi, dan Keasidan yang sesuai untuk membesar."
+            },
+            {
+                id: 4,
+                title: "Soalan 5: Kegunaan Mikroorganisma",
+                question: "Mikroorganisma manakah yang memainkan peranan penting dalam proses fermentasi susu untuk menghasilkan YOGURT?",
+                options: ["Virus", "Bakteria", "Protozoa", "Alga"],
+                correct: 1,
+                explanation: "Bakteria mesra seperti *Lactobacillus* digunakan dalam fermentasi produk tenusu untuk menghasilkan yogurt dan keju."
+            }
+        ];
+
+        // GAME STATE
+        let gameActive = false;
+        let score = 0;
+        let chestsFound = 0;
+        let activeChestId = null;
+        let answeredChests = new Set();
+
+        /* THREE.JS WORLD & RENDERER SETUP */
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x7ec0ee); // Sky blue
+        scene.fog = new THREE.FogExp2(0x7ec0ee, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting Setup
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfff5ea, 0.8);
+        sunLight.position.set(30, 50, 20);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 150;
+        const d = 40;
+        sunLight.shadow.camera.left = -d;
+        sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d;
+        sunLight.shadow.camera.bottom = -d;
+        scene.add(sunLight);
+
+        /* PROCEDURAL VOXEL TERRAIN & ASSETS GENERATION */
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        
+        // Materials
+        const grassMat = new THREE.MeshLambertMaterial({ color: 0x55a02e });
+        const dirtMat = new THREE.MeshLambertMaterial({ color: 0x795548 });
+        const woodMat = new THREE.MeshLambertMaterial({ color: 0x5d4037 });
+        const leavesMat = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
+        const chestMat = new THREE.MeshLambertMaterial({ color: 0xf59e0b });
+        const chestGoldMat = new THREE.MeshLambertMaterial({ color: 0xfef08a });
+
+        const worldSize = 40;
+        const terrainGrid = {};
+
+        // Generate Terrain Floor
+        for (let x = -worldSize; x <= worldSize; x++) {
+            for (let z = -worldSize; z <= worldSize; z++) {
+                // Outer boundary walls
+                if (Math.abs(x) === worldSize || Math.abs(z) === worldSize) {
+                    for (let y = 1; y <= 3; y++) {
+                        const wall = new THREE.Mesh(boxGeo, grassMat);
+                        wall.position.set(x, y, z);
+                        scene.add(wall);
+                    }
+                }
+
+                // Floor Block
+                const grass = new THREE.Mesh(boxGeo, grassMat);
+                grass.position.set(x, 0, z);
+                grass.receiveShadow = true;
+                scene.add(grass);
+
+                const dirt = new THREE.Mesh(boxGeo, dirtMat);
+                dirt.position.set(x, -1, z);
+                scene.add(dirt);
+            }
+        }
+
+        // Helper to spawn Voxel Trees
+        function createTree(x, z) {
+            const trunkHeight = 3 + Math.floor(Math.random() * 2);
+            for (let i = 1; i <= trunkHeight; i++) {
+                const trunk = new THREE.Mesh(boxGeo, woodMat);
+                trunk.position.set(x, i, z);
+                trunk.castShadow = true;
+                scene.add(trunk);
+            }
+            // Leaves Block Cloud
+            for (let lx = -1; lx <= 1; lx++) {
+                for (let lz = -1; lz <= 1; lz++) {
+                    for (let ly = trunkHeight; ly <= trunkHeight + 2; ly++) {
+                        if (lx === 0 && lz === 0 && ly === trunkHeight) continue;
+                        const leaf = new THREE.Mesh(boxGeo, leavesMat);
+                        leaf.position.set(x + lx, ly, z + lz);
+                        leaf.castShadow = true;
+                        scene.add(leaf);
+                    }
+                }
+            }
+        }
+
+        // Spawn Random Trees around map
+        for (let i = 0; i < 28; i++) {
+            const tx = Math.floor(Math.random() * (worldSize * 1.6)) - (worldSize * 0.8);
+            const tz = Math.floor(Math.random() * (worldSize * 1.6)) - (worldSize * 0.8);
+            if (Math.abs(tx) > 4 || Math.abs(tz) > 4) {
+                createTree(tx, tz);
+            }
+        }
+
+        // --- 3D VOXEL MICROBE MODELS (Decoration & Learning Landmarks) ---
+        function createBacteriaMob(x, z, color, label) {
+            const group = new THREE.Group();
+            const bodyMat = new THREE.MeshLambertMaterial({ color: color });
+            
+            // Capsule / Rod Body
+            for(let bx=-1; bx<=1; bx++){
+                const b = new THREE.Mesh(boxGeo, bodyMat);
+                b.position.set(bx * 0.6, 1.2, 0);
+                group.add(b);
+            }
+            // Flagella / Tails
+            const tailMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const t1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1.2), tailMat);
+            t1.position.set(-1.2, 1.2, -0.6);
+            group.add(t1);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            return group;
+        }
+
+        const microbes = [
+            createBacteriaMob(8, -12, 0xef4444, "Bacteria"),
+            createBacteriaMob(-15, 10, 0x3b82f6, "Paramecium"),
+            createBacteriaMob(18, 15, 0x8b5cf6, "Virus"),
+            createBacteriaMob(-10, -18, 0xec4899, "Mucor Mold")
+        ];
+
+        /* QUIZ CHESTS SPAWNING */
+        const chests = [];
+        const chestLocations = [
+            { x: 6, z: -8 },
+            { x: -12, z: -14 },
+            { x: 15, z: 12 },
+            { x: -14, z: 12 },
+            { x: 0, z: -22 }
+        ];
+
+        chestLocations.forEach((loc, index) => {
+            const chestGroup = new THREE.Group();
+            
+            // Chest Base
+            const base = new THREE.Mesh(boxGeo, chestMat);
+            base.position.set(0, 0.5, 0);
+            base.castShadow = true;
+            chestGroup.add(base);
+
+            // Chest Latch Gold
+            const latch = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.2), chestGoldMat);
+            latch.position.set(0, 0.6, 0.5);
+            chestGroup.add(latch);
+
+            // Beacon Beam Effect
+            const beamGeo = new THREE.CylinderGeometry(0.1, 0.4, 20, 8);
+            const beamMat = new THREE.MeshBasicMaterial({
+                color: 0x34d399,
+                transparent: true,
+                opacity: 0.35
+            });
+            const beam = new THREE.Mesh(beamGeo, beamMat);
+            beam.position.set(0, 10, 0);
+            chestGroup.add(beam);
+
+            chestGroup.position.set(loc.x, 0, loc.z);
+            chestGroup.userData = { id: index, active: true };
+            scene.add(chestGroup);
+            chests.push(chestGroup);
+        });
+
+        /* CONTROLS & CAMERA LOGIC */
+        camera.position.set(0, 1.7, 0);
+        let yaw = 0;
+        let pitch = 0;
+
+        // Player physics state
+        let velocity = new THREE.Vector3();
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let isGrounded = true;
+
+        // Desktop Pointer Lock
+        document.addEventListener('click', (e) => {
+            if (!gameActive) return;
+            if (window.innerWidth >= 768 && document.pointerLockElement !== document.body && !isModalOpen()) {
+                document.body.requestPointerLock();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === document.body && gameActive) {
+                yaw -= e.movementX * 0.0025;
+                pitch -= e.movementY * 0.0025;
+                pitch = Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, pitch));
+            }
+        });
+
+        // Keyboard Event Listeners
+        window.addEventListener('keydown', (e) => {
+            if (!gameActive || isModalOpen()) return;
+            switch (e.code) {
+                case 'KeyW': case 'ArrowUp': moveForward = true; break;
+                case 'KeyS': case 'ArrowDown': moveBackward = true; break;
+                case 'KeyA': case 'ArrowLeft': moveLeft = true; break;
+                case 'KeyD': case 'ArrowRight': moveRight = true; break;
+                case 'Space': 
+                    if (isGrounded) { 
+                        velocity.y = 0.15; 
+                        isGrounded = false; 
+                        sfx.playJump(); 
+                    } 
+                    break;
+                case 'KeyE': checkInteract(true); break;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            switch (e.code) {
+                case 'KeyW': case 'ArrowUp': moveForward = false; break;
+                case 'KeyS': case 'ArrowDown': moveBackward = false; break;
+                case 'KeyA': case 'ArrowLeft': moveLeft = false; break;
+                case 'KeyD': case 'ArrowRight': moveRight = false; break;
+            }
+        });
+
+        // MOBILE TOUCH CONTROLS LOGIC
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+        let joystickActive = false;
+        let touchStartX = 0, touchStartY = 0;
+
+        joystickZone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            joystickActive = true;
+            const t = e.touches[0];
+            touchStartX = t.clientX;
+            touchStartY = t.clientY;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (joystickActive) {
+                for (let i = 0; i < e.touches.length; i++) {
+                    const t = e.touches[i];
+                    if (t.target.closest('#joystick-zone')) {
+                        const dx = t.clientX - touchStartX;
+                        const dy = t.clientY - touchStartY;
+                        const dist = Math.min(45, Math.hypot(dx, dy));
+                        const angle = Math.atan2(dy, dx);
+
+                        const kx = Math.cos(angle) * dist;
+                        const ky = Math.sin(angle) * dist;
+                        joystickKnob.style.transform = `translate(${kx}px, ${ky}px)`;
+
+                        moveForward = dy < -12;
+                        moveBackward = dy > 12;
+                        moveLeft = dx < -12;
+                        moveRight = dx > 12;
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('touchend', (e) => {
+            if (joystickActive) {
+                joystickKnob.style.transform = `translate(0px, 0px)`;
+                moveForward = moveBackward = moveLeft = moveRight = false;
+                joystickActive = false;
+            }
+        });
+
+        // Touch Drag for Mobile Camera Look (Right half of screen)
+        let lastTouchX = 0, lastTouchY = 0;
+        window.addEventListener('touchstart', (e) => {
+            if (!gameActive || isModalOpen()) return;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].clientX > window.innerWidth / 2) {
+                    lastTouchX = e.touches[i].clientX;
+                    lastTouchY = e.touches[i].clientY;
+                }
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!gameActive || isModalOpen()) return;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].clientX > window.innerWidth / 2) {
+                    const dx = e.touches[i].clientX - lastTouchX;
+                    const dy = e.touches[i].clientY - lastTouchY;
+                    yaw -= dx * 0.005;
+                    pitch -= dy * 0.005;
+                    pitch = Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, pitch));
+                    lastTouchX = e.touches[i].clientX;
+                    lastTouchY = e.touches[i].clientY;
+                }
+            }
+        });
+
+        // Mobile Buttons
+        document.getElementById('btn-mobile-jump').addEventListener('click', () => {
+            if (isGrounded) { velocity.y = 0.15; isGrounded = false; sfx.playJump(); }
+        });
+
+        document.getElementById('btn-mobile-interact').addEventListener('click', () => {
+            checkInteract(true);
+        });
+
+        /* INTERACTION & QUIZ SYSTEM LOGIC */
+        function checkInteract(triggeredByButton = false) {
+            let nearChest = null;
+            chests.forEach(chest => {
+                if (!answeredChests.has(chest.userData.id)) {
+                    const dist = camera.position.distanceTo(chest.position);
+                    if (dist < 2.8) {
+                        nearChest = chest;
+                    }
+                }
+            });
+
+            const prompt = document.getElementById('interact-prompt');
+            if (nearChest) {
+                prompt.classList.remove('hidden');
+                if (triggeredByButton) {
+                    openQuizModal(nearChest.userData.id);
+                }
+            } else {
+                prompt.classList.add('hidden');
+            }
+        }
+
+        function isModalOpen() {
+            return !document.getElementById('quiz-modal').classList.contains('hidden') ||
+                   !document.getElementById('start-overlay').classList.contains('hidden') ||
+                   !document.getElementById('victory-modal').classList.contains('hidden');
+        }
+
+        function openQuizModal(id) {
+            activeChestId = id;
+            const qData = quizQuestions[id];
+            
+            sfx.playChestOpen();
+            if (document.pointerLockElement === document.body) {
+                document.exitPointerLock();
+            }
+
+            document.getElementById('quiz-title-number').innerText = `PETI SOALAN #${id + 1}`;
+            document.getElementById('quiz-question').innerText = qData.question;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.add('hidden');
+            
+            const btnClose = document.getElementById('btn-close-quiz');
+            btnClose.classList.add('hidden');
+
+            qData.options.forEach((optText, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-3.5 rounded-xl bg-gray-800 hover:bg-emerald-600/30 border-2 border-gray-700 hover:border-emerald-400 font-semibold text-sm transition-all flex items-center justify-between group";
+                btn.innerHTML = `
+                    <span>${String.fromCharCode(65 + idx)}. ${optText}</span>
+                    <i class="fa-solid fa-chevron-right text-gray-500 group-hover:text-emerald-400"></i>
+                `;
+                btn.onclick = () => submitAnswer(idx, btn);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('quiz-modal').classList.remove('hidden');
+        }
+
+        function submitAnswer(selectedIndex, btnElement) {
+            const qData = quizQuestions[activeChestId];
+            const feedback = document.getElementById('quiz-feedback');
+            const optionsBtns = document.getElementById('quiz-options').children;
+
+            // Disable further clicks
+            for (let b of optionsBtns) { b.disabled = true; b.classList.add('opacity-60'); }
+
+            if (selectedIndex === qData.correct) {
+                sfx.playCorrect();
+                score += 100;
+                feedback.className = "p-3.5 rounded-xl text-xs md:text-sm font-semibold mb-4 border bg-emerald-500/20 border-emerald-400 text-emerald-300 block";
+                feedback.innerHTML = `<i class="fa-solid fa-circle-check text-base mr-1"></i> <b>TAHNIAH! JAWAPAN TEPAT (+100 Markah)</b><br><span class="mt-1 block font-normal text-gray-200">${qData.explanation}</span>`;
+                btnElement.classList.remove('opacity-60', 'bg-gray-800');
+                btnElement.classList.add('bg-emerald-600', 'border-emerald-300', 'text-white');
+            } else {
+                sfx.playWrong();
+                feedback.className = "p-3.5 rounded-xl text-xs md:text-sm font-semibold mb-4 border bg-rose-500/20 border-rose-400 text-rose-300 block";
+                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark text-base mr-1"></i> <b>JAWAPAN KURANG TEPAT</b><br><span class="mt-1 block font-normal text-gray-200">${qData.explanation}</span>`;
+                btnElement.classList.remove('opacity-60', 'bg-gray-800');
+                btnElement.classList.add('bg-rose-600', 'border-rose-300', 'text-white');
+            }
+
+            // Mark Chest as completed
+            answeredChests.add(activeChestId);
+            chestsFound = answeredChests.size;
+            
+            // Update HUD
+            document.getElementById('score-text').innerText = score;
+            document.getElementById('chests-found-text').innerText = chestsFound;
+
+            // Change chest color in 3D scene
+            const chestObj = chests.find(c => c.userData.id === activeChestId);
+            if (chestObj) {
+                chestObj.children[0].material = new THREE.MeshLambertMaterial({ color: 0x4b5563 }); // Gray out
+                chestObj.children[2].visible = false; // Hide beam
+            }
+
+            document.getElementById('btn-close-quiz').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-close-quiz').addEventListener('click', () => {
+            document.getElementById('quiz-modal').classList.add('hidden');
+            if (chestsFound >= 5) {
+                showVictoryModal();
+            } else if (window.innerWidth >= 768) {
+                document.body.requestPointerLock();
+            }
+        });
+
+        function showVictoryModal() {
+            if (document.pointerLockElement === document.body) {
+                document.exitPointerLock();
+            }
+            document.getElementById('final-score').innerText = `${score} / 500`;
+            
+            let rating = "Amat Baik";
+            if (score === 500) rating = "Cemerlang (A+)";
+            else if (score >= 300) rating = "Keputusan Baik";
+            else rating = "Perlu Ulang Kaji";
+
+            document.getElementById('final-rating').innerText = rating;
+            document.getElementById('victory-modal').classList.remove('hidden');
+        }
+
+        /* MAIN GAME ANIMATION LOOP */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (gameActive && !isModalOpen()) {
+                // Update Camera Orientation
+                const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                euler.x = pitch;
+                euler.y = yaw;
+                camera.quaternion.setFromEuler(euler);
+
+                // Movement Directions
+                const moveVector = new THREE.Vector3();
+                if (moveForward) moveVector.z -= 1;
+                if (moveBackward) moveVector.z += 1;
+                if (moveLeft) moveVector.x -= 1;
+                if (moveRight) moveVector.x += 1;
+                moveVector.normalize();
+                moveVector.applyEuler(new THREE.Euler(0, yaw, 0));
+
+                camera.position.addScaledVector(moveVector, 0.12);
+
+                // Gravity & Jump Physics
+                velocity.y -= 0.008; // Gravity acceleration
+                camera.position.y += velocity.y;
+
+                if (camera.position.y <= 1.7) {
+                    velocity.y = 0;
+                    camera.position.y = 1.7;
+                    isGrounded = true;
+                }
+
+                // World boundaries enforcement
+                const maxB = worldSize - 1.5;
+                camera.position.x = Math.max(-maxB, Math.min(maxB, camera.position.x));
+                camera.position.z = Math.max(-maxB, Math.min(maxB, camera.position.z));
+
+                // Animate Chests and Microbe Mobs
+                chests.forEach(c => {
+                    if (!answeredChests.has(c.userData.id)) {
+                        c.children[0].rotation.y += 0.02;
+                    }
+                });
+
+                microbes.forEach((m, idx) => {
+                    m.rotation.y += 0.01;
+                    m.position.y = Math.sin(Date.now() * 0.003 + idx) * 0.2;
+                });
+
+                // Proximity check for interaction hint
+                checkInteract(false);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Start & Restart Event Handlers
+        document.getElementById('btn-start').addEventListener('click', () => {
+            sfx.init();
+            document.getElementById('start-overlay').classList.add('hidden');
+            gameActive = true;
+            if (window.innerWidth >= 768) {
+                document.body.requestPointerLock();
+            }
+            animate();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            location.reload();
+        });
+
+        // Window Resize Handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
